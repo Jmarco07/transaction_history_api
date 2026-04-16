@@ -1,0 +1,9 @@
+{
+  "id": "00002",
+  "limit": "10",
+  "startDate": "2025-01-25",
+  "offset": "1",
+  "range": "10",
+  "type": "partner",
+  "sort": "DESC"
+}

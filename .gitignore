@@ -1,0 +1,37 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform tfvars (contains secrets)
+*.tfvars
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Lambda layers installed packages
+modules/lambda/layers/*/python/
+!modules/lambda/layers/*/requirements.txt
+!modules/lambda/layers/*/build_layer.sh
+
+# Lambda zip artifacts
+modules/lambda/zip/**/*.zip
+*.zip
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
