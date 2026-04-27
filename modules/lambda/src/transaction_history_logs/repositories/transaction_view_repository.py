@@ -1,60 +1,127 @@
-from typing import Optional, List, Dict
+from typing import Optional
+
 from factories.sql_factory import SQLFactory
 from models.transaction_view_model import TransactionView
-from decimal import Decimal
-from datetime import datetime
+
 
 class TransactionViewRepository(SQLFactory(TransactionView)):
 
     @classmethod
     def get_transaction_view(cls, connection, ret_ref_id: str) -> Optional[dict]:
-        """
-        Fetch transaction details for the view endpoint.
-        Parse custom_fld into label/value pairs (supports label-only segments).
-        Returns all columns including parsed custom fields.
-        """
-        escaped_ret_ref_id = ret_ref_id.replace("'", "''")
-
-        stmt = f"""
+        stmt = """
+            SELECT 1;
             SELECT
-                retr_ref_no AS trxn_no,
-                added_date::timestamp AS added_date,
-                trxn_typ_nature AS service_type,
-                trace_no AS traceId,
-                transaction_type AS trxnType,
-                trxn_typ_description AS description,
-                cr_dr AS cardType,
-                rspn_code AS responseCode,
-                rspn_status AS status,
-                billing_amount AS amount,
-                gate_variant AS gateVariant,
-                COALESCE(CAST(custom_fld AS varchar), '') AS custom_fld
-            FROM target.megalink_transaction_gl_hist_fct
-            WHERE retr_ref_no = '{escaped_ret_ref_id}'
-            ORDER BY added_date DESC
+                retr_ref_no AS trxnNo,
+                trxn_typ_nature AS trxnTypeNature,
+                trxn_typ_description AS trxnTypeDescription,
+                amount,
+                converted_amount AS convertedAmount,
+                fees,
+                receiver_country AS receiverCountry,
+                remittance_partner AS remittancePartner,
+                delivery_method AS deliveryMethod,
+                location AS location,
+                pin,
+                item,
+                txn_datetime::timestamp AS date,
+                pawn_ticket_no AS pawnTicketNo,
+                bulk_ref_no AS bulkRefNo,
+                trace_no AS traceNo,
+                order_no AS orderNo,
+                biller AS biller,
+                product,
+                fee,
+                sender_from AS senderFrom,
+                discount,
+                total_amount AS totalAmount,
+                merchant,
+                provider,
+                sku,
+                account_number AS acctNo,
+                acct_no_mobile_no AS acctNoMobileNo,
+                recipient,
+                recipient_name AS recipientName,
+                claim_code AS claimCode,
+                recipient_no AS recipientNo,
+                partner,
+                protektodo_package AS protektodoPackage,
+                policy_holder AS policyHolder,
+                to_account AS toAccount,
+                loyalty_no AS loyaltyNo,
+                source,
+                receiver,
+                account,
+                purpose,
+                sender,
+                sender_account_name AS senderAccountName,
+                status,
+                ref_card_id AS refCardId,
+                transaction_id AS transactionId,
+                token,
+                bank
+            FROM target.transaction_history_api
+            WHERE retr_ref_no = %s
+            ORDER BY date DESC
             LIMIT 1;
         """
 
         column_mapping = {
-            0: "trxn_no",
-            1: "added_date",
-            2: "service_type",
-            3: "traceId",
-            4: "type",
-            5: "description",
-            6: "cardType",
-            7: "responseCode",
-            8: "status",
-            9: "amount",
-            10: "gateVariant",
-            11: "custom_fld"
+            0: "trxnNo",
+            1: "trxnTypeNature",
+            2: "trxnTypeDescription",
+            3: "amount",
+            4: "convertedAmount",
+            5: "fees",
+            6: "receiverCountry",
+            7: "remittancePartner",
+            8: "deliveryMethod",
+            9: "location",
+            10: "pin",
+            11: "item",
+            12: "date",
+            13: "pawnTicketNo",
+            14: "bulkRefNo",
+            15: "traceNo",
+            16: "orderNo",
+            17: "biller",
+            18: "product",
+            19: "fee",
+            20: "senderFrom",
+            21: "discount",
+            22: "totalAmount",
+            23: "merchant",
+            24: "provider",
+            25: "sku",
+            26: "acctNo",
+            27: "acctNoMobileNo",
+            28: "recipient",
+            29: "recipientName",
+            30: "claimCode",
+            31: "recipientNo",
+            32: "partner",
+            33: "protektodoPackage",
+            34: "policyHolder",
+            35: "toAccount",
+            36: "loyaltyNo",
+            37: "source",
+            38: "receiver",
+            39: "account",
+            40: "purpose",
+            41: "sender",
+            42: "senderAccountName",
+            43: "status",
+            44: "refCardId",
+            45: "transactionId",
+            46: "token",
+            47: "bank",
         }
 
         results = list(
-            super(TransactionViewRepository, cls).psycopg2_select(
+            super().psycopg2_select(
                 connection=connection,
                 statement=stmt,
                 column_mapping=column_mapping,
+                params=(ret_ref_id,),
             )
         )
 
@@ -62,39 +129,12 @@ class TransactionViewRepository(SQLFactory(TransactionView)):
             return None
 
         result = results[0]
+
         if hasattr(result, "model_dump"):
             result = result.model_dump()
 
-        result["type"] = result.pop("trxnType", None)
-
-        result["amount"] = Decimal(result.get("amount") or 0)
-        result["responseCode"] = (
-            int(result.get("responseCode")) if result.get("responseCode") is not None else 0
-        )
-
-        raw_custom = result.get("custom_fld") or ""
-        custom_fields: List[Dict[str, str]] = []
-
-        for segment in raw_custom.split("|"):
-            segment = segment.strip()
-            if not segment:
-                continue
-            if "~" in segment:
-                label, value = segment.split("~", 1)
-            else:
-                label, value = segment, ""
-            custom_fields.append({"label": label.strip(), "value": value.strip()})
-
-        result["fields"] = custom_fields
-
-        for key in ["trxn_no", "added_date", "service_type", "cardType", "gateVariant", "custom_fld", "traceId", "description", "status"]:
-            if key not in result:
-                result[key] = None
-
-        if isinstance(result.get("added_date"), str):
-            try:
-                result["added_date"] = datetime.fromisoformat(result["added_date"])
-            except ValueError:
-                result["added_date"] = None
+        for key, value in result.items():
+            if value is None:
+                result[key] = ""
 
         return result

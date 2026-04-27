@@ -12,10 +12,13 @@ PARTNER_ORDER_BY = ["uploaded_date", "trxn_amt", "transactionType"]
 
 ALLOWED_FIELDS = {
     "corporate": {"type", "retRefNo", "transactionType", "status",
-        "startDate", "end_date", "offset", "limit", "sort", "orderBy"},
+        "startDate", "end_date", "offset", "limit", "sort", "orderBy", "id"},
     "agent": {"type", "retRefNo", "processedBy", "transactionType",
         "serviceType", "traceNo", "amount", "status",
-        "startDate", "end_date", "offset", "limit", "sort", "orderBy"},
+        "startDate", "end_date", "offset", "limit", "sort", "orderBy", "id"},
+    "user": {"type", "retRefNo", "processedBy", "transactionType",
+        "serviceType", "traceNo", "amount", "status",
+        "startDate", "end_date", "offset", "limit", "sort", "orderBy", "id"},
 }
 
 def check_order_by(value, info):
@@ -93,7 +96,8 @@ def check_start_and_end_date(string_date, info):
 
 
 class GetTransactionsRequest(BaseModel):
-    type: Literal["corporate", "agent"]
+    type: Literal["corporate", "agent", "user"]
+    id: Optional[List[str]] = None
     retRefNo: Optional[List[str]] = None
     processedBy: Optional[List[str]] = None
     transactionType: Optional[List[str]] = None

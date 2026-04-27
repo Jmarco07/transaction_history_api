@@ -33,7 +33,7 @@ module "api_gateway" {
   apigw_lambda_list = [
     {
       function_name   = "transaction_history",
-      route_key       = "GET /v1/api/transactions",
+      route_key       = "POST /v1/api/transactions",
       integration_uri = module.lambda_functions.lambda_arns["transaction_history_logs"]
       requires_auth   = true
     },
@@ -91,6 +91,11 @@ module "lambda_functions" {
   lambda_security_group_ids       = var.lambda_security_group_ids
 
   runtime = "python3.11" # Change this depending on runtime
+
+  keep_alive_lambda_list = [
+    { function_name = "transaction_history_logs" },
+    { function_name = "transaction_view" },
+  ]
 
   lambda_layer_list = [
     {
@@ -178,8 +183,8 @@ module "lambda_functions" {
       role          = "${local.common.project_name}-transaction_view-lambda-role-${local.common.environment}",
       handler       = "handlers.get_transaction_view.lambda_handler",
       runtime       = "python3.11",
-      memory_size   = 128,
-      timeout       = 29,
+      memory_size   = 512,
+      timeout       = 120,
       layers        = ["redshift-api-layer-v1"],
       vpc_config = {
         subnet_ids         = var.lambda_vpc_subnet_ids

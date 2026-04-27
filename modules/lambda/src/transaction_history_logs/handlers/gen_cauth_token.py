@@ -80,7 +80,7 @@ def lambda_handler(event, context=None):
             token,
             secret,
             algorithms=["HS256"],
-            options={"verify_exp": False, "verify_aud": False}  # ✅ disable audience validation
+            options={"verify_exp": False, "verify_aud": False}
         )
 
         put_item({
