@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -17,7 +17,7 @@ class TransactionView(BaseModel):
     location: Optional[str] = None
     pin: Optional[str] = None
     item: Optional[str] = None
-    date: Optional[datetime] = None
+    date: Optional[Any] = None
     pawnTicketNo: Optional[str] = None
     bulkRefNo: Optional[str] = None
     traceNo: Optional[str] = None

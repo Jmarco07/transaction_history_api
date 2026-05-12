@@ -1,10 +1,16 @@
 resource "aws_dynamodb_table" "cauth_token" {
   name         = "${var.common.project_name}-cauth-tokens-${var.common.environment}"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "token"
+  hash_key     = "sub"
+  range_key    = "aud"
 
   attribute {
-    name = "token"
+    name = "sub"
+    type = "S"
+  }
+
+  attribute {
+    name = "aud"
     type = "S"
   }
 

@@ -59,6 +59,63 @@ resource "aws_iam_policy" "lambda_policy" {
   )
 }
 
+# Secrets Manager policy for functions that need it
+resource "aws_iam_policy" "lambda_secrets_manager_policy" {
+  for_each = {
+    for lambda in var.lambdas_with_secrets_manager_list : lambda.name => lambda
+  }
+
+  name        = "${var.common.project_name}-${each.value.name}-secrets-manager-policy-${var.common.environment}"
+  description = "Secrets Manager access policy for Lambda"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "secretsmanager:GetSecretValue"
+        ],
+        "Resource" : [
+          var.redshift_lambda_user_secret_arn
+        ]
+      }
+    ]
+  })
+}
+
+# Redshift access policy for functions that need it
+resource "aws_iam_policy" "lambda_redshift_policy" {
+  for_each = {
+    for lambda in var.lambdas_with_redshift_list : lambda.name => lambda
+  }
+
+  name        = "${var.common.project_name}-${each.value.name}-redshift-policy-${var.common.environment}"
+  description = "Redshift access policy for Lambda"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "redshift:GetClusterCredentials",
+          "redshift:DescribeClusters",
+          "redshift-data:BatchExecuteStatement",
+          "redshift-data:ExecuteStatement",
+          "redshift-data:GetStatementResult",
+          "redshift-data:DescribeStatement",
+          "redshift-data:ListStatements"
+        ],
+        "Resource" : [
+          var.redshift_arn,
+          "*"
+        ]
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role" "lambda-exec-role" {
   for_each = { for key, value in var.lambda_function_list : value.function_name => value }
 
@@ -88,6 +145,26 @@ resource "aws_iam_role_policy_attachment" "lambda-exec-role-policy-attachment" {
 
   role       = aws_iam_role.lambda-exec-role[each.value.function_name].name
   policy_arn = aws_iam_policy.lambda_policy[each.value.function_name].arn
+}
+
+# Attach Secrets Manager policy to functions that need it
+resource "aws_iam_role_policy_attachment" "lambda_secrets_manager_policy_attachment" {
+  for_each = {
+    for lambda in var.lambdas_with_secrets_manager_list : lambda.name => lambda
+  }
+
+  role       = aws_iam_role.lambda-exec-role[each.value.name].name
+  policy_arn = aws_iam_policy.lambda_secrets_manager_policy[each.value.name].arn
+}
+
+# Attach Redshift policy to functions that need it
+resource "aws_iam_role_policy_attachment" "lambda_redshift_policy_attachment" {
+  for_each = {
+    for lambda in var.lambdas_with_redshift_list : lambda.name => lambda
+  }
+
+  role       = aws_iam_role.lambda-exec-role[each.value.name].name
+  policy_arn = aws_iam_policy.lambda_redshift_policy[each.value.name].arn
 }
 
 resource "aws_lambda_permission" "lambda_apigw_permission" {

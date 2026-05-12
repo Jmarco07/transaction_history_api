@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 
 from factories.sql_factory import SQLFactory
 from models.transaction_view_model import TransactionView
@@ -132,6 +133,9 @@ class TransactionViewRepository(SQLFactory(TransactionView)):
 
         if hasattr(result, "model_dump"):
             result = result.model_dump()
+
+        if result.get("date") and isinstance(result["date"], datetime):
+            result["date"] = result["date"].strftime("%m/%d/%Y %I:%M %p")
 
         for key, value in result.items():
             if value is None:
