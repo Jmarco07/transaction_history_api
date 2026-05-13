@@ -8,5 +8,4 @@ class GetWalletTransactionResponse(BaseModel):
     
     class Config:
         json_encoders = {
-            # Add any custom encoders if needed
         }
