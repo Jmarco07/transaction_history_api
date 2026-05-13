@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 class RemittanceTransaction(BaseModel):
     # DE fields 1-56 (character varying(100))
     de1: Optional[str] = ""
-    de2: Optional[str] = ""
     de3: Optional[str] = ""
     de4: Optional[str] = ""
     de5: Optional[str] = ""

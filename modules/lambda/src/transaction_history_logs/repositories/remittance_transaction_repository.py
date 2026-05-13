@@ -20,7 +20,7 @@ class RemittanceTransactionRepository:
 
         query = """
         SELECT 
-            de1, de2, de3, de4, de5, de6, de7, de8, de9, de10,
+            de1, de3, de4, de5, de6, de7, de8, de9, de10,
             de11, de12, de13, de14, de15, de16, de17, de18, de19, de20,
             de21, de22, de23, de24, de25, de26, de27, de28, de29, de30,
             de31, de32, de33, de34, de35, de36, de37, de38, de39, de40,
