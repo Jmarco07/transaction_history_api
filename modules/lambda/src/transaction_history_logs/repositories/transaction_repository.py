@@ -1,7 +1,8 @@
-from typing import List
+import base64
+from typing import List, Tuple
 from factories.sql_factory import SQLFactory
 from models.requests.get_transactions import GetTransactionsRequest
-from models.transaction_model import AgentTransaction, CorporateTransaction, UserTransaction
+from models.transaction_model import AgentTransaction
 
 
 class TransactionRepository:
@@ -28,13 +29,6 @@ class TransactionRepository:
             "status": "statusdes",
             "transactionType": "trxntypeno",
         },
-        "corporate": {
-            "retRefNo": "trxn_reference_number",
-            "amount": "trxn_amt",
-            "status": "upload_status",
-            "transactionType": "trxn_typ",
-            "id": "company_id",
-        },
     }
 
     COLUMN_TYPE_MAP = {
@@ -46,16 +40,48 @@ class TransactionRepository:
         "amount": "numeric",
         "statusdes": "varchar",
         "trxntypeno": "numeric",
-        "trxn_reference_number": "varchar",
-        "trxn_amt": "numeric",
-        "upload_status": "varchar",
-        "trxn_typ": "numeric",
     }
 
+    COLUMN_MAPPING = {
+        0: "trxnNo",
+        1: "retRefNo",
+        2: "cardNo",
+        3: "source",
+        4: "recipient",
+        5: "amount",
+        6: "trxnDate",
+        7: "currency",
+        8: "debitTrxn",
+        9: "creditTrxn",
+        10: "drCr",
+        11: "description",
+        12: "serviceType",
+        13: "trxnTypeNo",
+        14: "traceNo",
+        15: "currencyCode",
+        16: "merchant_id",
+        17: "walletId",
+        18: "senderName",
+        19: "terminalId",
+        20: "processedBy",
+        21: "addedDate",
+        22: "setlFlag",
+        23: "statusDes",
+        24: "insFlag",
+    }
+
+    @staticmethod
+    def encode_cursor(trxn_no: str) -> str:
+        return base64.b64encode(f"trxnno:{trxn_no}".encode()).decode()
+
+    @staticmethod
+    def decode_cursor(cursor: str) -> str:
+        decoded = base64.b64decode(cursor.encode()).decode()
+        return decoded.split(":", 1)[1]
+
     @classmethod
-    def get(cls, connection, get_transactions_request: GetTransactionsRequest) -> List:
+    def get(cls, connection, get_transactions_request: GetTransactionsRequest) -> Tuple[List, dict]:
         limit = min(get_transactions_request.limit or 1000, cls.MAX_LIMIT)
-        offset = (get_transactions_request.offset - 1) * limit
 
         adtl_filters = ""
         params = [
@@ -64,7 +90,6 @@ class TransactionRepository:
         ]
 
         def add_filter(field_name: str, values: list):
-            """Dynamically build IN clause for varchar or numeric fields."""
             nonlocal adtl_filters, params
             if not values:
                 return
@@ -82,13 +107,12 @@ class TransactionRepository:
                     try:
                         cleaned_values = [str(v).strip() for v in values if str(v).strip()]
                     except (ValueError, TypeError):
-                        print(f"   ❌ Skipping invalid numeric value: {v}")
+                        print(f"Skipping invalid numeric value: {v}")
             else:
                 cleaned_values = [str(v).strip() for v in values if v and str(v).strip()]
 
-
             if not cleaned_values:
-                print(f"⚠️ No valid values after cleaning for column '{column}'")
+                print(f"No valid values after cleaning for column '{column}'")
                 return
 
             placeholders = ", ".join(["%s"] * len(cleaned_values))
@@ -98,268 +122,89 @@ class TransactionRepository:
                 adtl_filters += f" AND TRIM({column}) IN ({placeholders})"
             params.extend(cleaned_values)
 
-            print(f"   • Added to filters: {adtl_filters}")
-            print(f"   • Current params  : {params}")
+        add_filter("id", get_transactions_request.id)
+        add_filter("retRefNo", get_transactions_request.retRefNo)
+        add_filter("processedBy", get_transactions_request.processedBy)
+        add_filter("serviceType", get_transactions_request.serviceType)
+        add_filter("traceNo", get_transactions_request.traceNo)
+        add_filter("amount", get_transactions_request.amount)
+        add_filter("status", get_transactions_request.status)
+        add_filter("transactionType", get_transactions_request.transactionType)
 
-        if get_transactions_request.type == "agent":
-            add_filter("id", get_transactions_request.id)
-            add_filter("retRefNo", get_transactions_request.retRefNo)
-            add_filter("processedBy", get_transactions_request.processedBy)
-            add_filter("serviceType", get_transactions_request.serviceType)
-            add_filter("traceNo", get_transactions_request.traceNo)
-            add_filter("amount", get_transactions_request.amount)
-            add_filter("status", get_transactions_request.status)
-            add_filter("transactionType", get_transactions_request.transactionType)
+        cursor_filter = ""
+        if get_transactions_request.cursor:
+            cursor_value = cls.decode_cursor(get_transactions_request.cursor)
+            if get_transactions_request.sort == "DESC":
+                cursor_filter = " AND trxnno < %s"
+            else:
+                cursor_filter = " AND trxnno > %s"
+            params.append(cursor_value)
 
-            params.extend([limit, offset])
+        params.append(limit + 1)
 
-            stmt = f"""
-                SELECT 1;
-                SELECT
-                    trxnno AS trxnNo,
-                    retrrefno AS retRefNo,
-                    cardno AS cardNo,
-                    sender AS source,
-                    receiver AS recipient,
-                    amount AS amount,
-                    trxndate AS trxnDate,
-                    currency AS currency,
-                    debittrxn AS debitTrxn,
-                    credittrxn AS creditTrxn,
-                    drcr AS drCr,
-                    description AS description,
-                    servicetype AS serviceType,
-                    trxntypeno AS trxnTypeNo,
-                    traceno AS traceNo,
-                    currencycode AS currencyCode,
-                    TRIM(merchantid) AS merchant_id,
-                    walletid AS walletId,
-                    sendername AS senderName,
-                    terminalid AS terminalId,
-                    processedby AS processedBy,
-                    addeddate AS addedDate,
-                    setlflag AS setlFlag,
-                    statusdes AS statusDes,
-                    insflag AS insFlag
-                FROM target.mvw_megalink_agent_txn_history
-                WHERE trxndate BETWEEN %s AND %s
-                    {adtl_filters}
-                ORDER BY {get_transactions_request.orderBy} {get_transactions_request.sort}
-                LIMIT %s OFFSET %s;
-            """
+        stmt = f"""
+            SELECT 1;
+            SELECT
+                trxnno AS trxnNo,
+                retrrefno AS retRefNo,
+                cardno AS cardNo,
+                sender AS source,
+                receiver AS recipient,
+                amount AS amount,
+                trxndate AS trxnDate,
+                currency AS currency,
+                debittrxn AS debitTrxn,
+                credittrxn AS creditTrxn,
+                drcr AS drCr,
+                description AS description,
+                servicetype AS serviceType,
+                trxntypeno AS trxnTypeNo,
+                traceno AS traceNo,
+                currencycode AS currencyCode,
+                TRIM(merchantid) AS merchant_id,
+                walletid AS walletId,
+                sendername AS senderName,
+                terminalid AS terminalId,
+                processedby AS processedBy,
+                addeddate AS addedDate,
+                setlflag AS setlFlag,
+                statusdes AS statusDes,
+                insflag AS insFlag
+            FROM target.mvw_megalink_agent_txn_history
+            WHERE trxndate BETWEEN %s AND %s
+                {adtl_filters}
+                {cursor_filter}
+            ORDER BY {get_transactions_request.orderBy} {get_transactions_request.sort}
+            LIMIT %s;
+        """
 
-            print("\n==============================")
-            print("🔍 Final query filters:", adtl_filters)
-            print("🔸 Final params:", params)
-            print("==============================\n")
+        print("\n==============================")
+        print("Final query filters:", adtl_filters)
+        print("Cursor filter:", cursor_filter)
+        print("Final params:", params)
+        print("==============================\n")
 
-            return SQLFactory(AgentTransaction).psycopg2_select(
-                connection=connection,
-                statement=stmt,
-                params=params,
-                column_mapping={
-                    0: "trxnNo",
-                    1: "retRefNo",
-                    2: "cardNo",
-                    3: "source",
-                    4: "recipient",
-                    5: "amount",
-                    6: "trxnDate",
-                    7: "currency",
-                    8: "debitTrxn",
-                    9: "creditTrxn",
-                    10: "drCr",
-                    11: "description",
-                    12: "serviceType",
-                    13: "trxnTypeNo",
-                    14: "traceNo",
-                    15: "currencyCode",
-                    16: "merchant_id",
-                    17: "walletId",
-                    18: "senderName",
-                    19: "terminalId",
-                    20: "processedBy",
-                    21: "addedDate",
-                    22: "setlFlag",
-                    23: "statusDes",
-                    24: "insFlag",
-                },
-            )
-        
-        elif get_transactions_request.type == "user":
-            add_filter("id", get_transactions_request.id)
-            add_filter("retRefNo", get_transactions_request.retRefNo)
-            add_filter("processedBy", get_transactions_request.processedBy)
-            add_filter("serviceType", get_transactions_request.serviceType)
-            add_filter("traceNo", get_transactions_request.traceNo)
-            add_filter("amount", get_transactions_request.amount)
-            add_filter("status", get_transactions_request.status)
-            add_filter("transactionType", get_transactions_request.transactionType)
+        results = list(SQLFactory(AgentTransaction).psycopg2_select(
+            connection=connection,
+            statement=stmt,
+            params=params,
+            column_mapping=cls.COLUMN_MAPPING,
+        ) or [])
 
-            params.extend([limit, offset])
+        has_next_page = len(results) > limit
+        if has_next_page:
+            results = results[:limit]
 
-            stmt = f"""
-                SELECT 1;
-                SELECT
-                    trxnno AS trxnNo,
-                    retrrefno AS retRefNo,
-                    cardno AS cardNo,
-                    sender AS source,
-                    receiver AS recipient,
-                    amount AS amount,
-                    trxndate AS trxnDate,
-                    currency AS currency,
-                    debittrxn AS debitTrxn,
-                    credittrxn AS creditTrxn,
-                    drcr AS drCr,
-                    description AS description,
-                    servicetype AS serviceType,
-                    trxntypeno AS trxnTypeNo,
-                    traceno AS traceNo,
-                    currencycode AS currencyCode,
-                    TRIM(merchantid) AS merchant_id,
-                    walletid AS walletId,
-                    sendername AS senderName,
-                    terminalid AS terminalId,
-                    processedby AS processedBy,
-                    addeddate AS addedDate,
-                    setlflag AS setlFlag,
-                    statusdes AS statusDes,
-                    insflag AS insFlag
-                FROM target.mvw_megalink_agent_txn_history
-                WHERE trxndate BETWEEN %s AND %s
-                    {adtl_filters}
-                ORDER BY {get_transactions_request.orderBy} {get_transactions_request.sort}
-                LIMIT %s OFFSET %s;
-            """
+        has_previous_page = get_transactions_request.cursor is not None
 
-            print("\n==============================")
-            print("🔍 Final query filters:", adtl_filters)
-            print("🔸 Final params:", params)
-            print("==============================\n")
+        start_cursor = cls.encode_cursor(results[0].trxnNo) if results else None
+        end_cursor = cls.encode_cursor(results[-1].trxnNo) if results else None
 
-            return SQLFactory(UserTransaction).psycopg2_select(
-                connection=connection,
-                statement=stmt,
-                params=params,
-                column_mapping={
-                    0: "trxnNo",
-                    1: "retRefNo",
-                    2: "cardNo",
-                    3: "source",
-                    4: "recipient",
-                    5: "amount",
-                    6: "trxnDate",
-                    7: "currency",
-                    8: "debitTrxn",
-                    9: "creditTrxn",
-                    10: "drCr",
-                    11: "description",
-                    12: "serviceType",
-                    13: "trxnTypeNo",
-                    14: "traceNo",
-                    15: "currencyCode",
-                    16: "merchant_id",
-                    17: "walletId",
-                    18: "senderName",
-                    19: "terminalId",
-                    20: "processedBy",
-                    21: "addedDate",
-                    22: "setlFlag",
-                    23: "statusDes",
-                    24: "insFlag",
-                },
-            )
+        page_info = {
+            "hasNextPage": has_next_page,
+            "hasPreviousPage": has_previous_page,
+            "startCursor": start_cursor,
+            "endCursor": end_cursor,
+        }
 
-        elif get_transactions_request.type == "corporate":
-            add_filter("id", get_transactions_request.id)
-            add_filter("retRefNo", get_transactions_request.retRefNo)
-            add_filter("amount", get_transactions_request.amount)
-            add_filter("status", get_transactions_request.status)
-            add_filter("transactionType", get_transactions_request.transactionType)
-
-            params.extend([limit, offset])
-
-            stmt = f"""
-                SELECT 1;
-                SELECT
-                    company_id AS id,
-                    filename AS fileName,
-                    uploaded_by AS uploadedBy,
-                    uploaded_date AS uploadedDate,
-                    account_id AS acctNo,
-                    bulk_id AS bulkId,
-                    aux_no AS auxNo,
-                    claim_code AS claimCode,
-                    from_account AS fromAcct,
-                    to_account AS toAcct,
-                    trxn_amt AS trxnAmount,
-                    trxn_type_desc AS trxnDesc,
-                    receiver_first_name AS firstName,
-                    receiver_middle_name AS middleName,
-                    receiver_last_name AS lastName,
-                    receiver_mobile_no AS mobileNo,
-                    optional_1 AS optional1,
-                    optional_2 AS optional2,
-                    optional_3 AS optional3,
-                    optional_4 AS optional4,
-                    optional_5 AS optional5,
-                    optional_6 AS optional6,
-                    optional_7 AS optional7,
-                    optional_8 AS optional8,
-                    optional_9 AS optional9,
-                    optional_10 AS optional10,
-                    optional_11 AS optional11,
-                    optional_12 AS optional12,
-                    resp_code AS respCode,
-                    upload_status AS uploadStat,
-                    trxn_reference_number AS trxnRefNo,
-                    trxn_typ AS transactionType
-                FROM target.megalink_bulk_pepp_disbursement_dim
-                WHERE CAST(uploaded_date AS TIMESTAMP) BETWEEN %s AND %s
-                    {adtl_filters}
-                ORDER BY {get_transactions_request.orderBy} {get_transactions_request.sort}
-                LIMIT %s OFFSET %s;
-            """
-
-            return SQLFactory(CorporateTransaction).psycopg2_select(
-                connection=connection,
-                statement=stmt,
-                params=params,
-                column_mapping = {
-                    0: "id",
-                    1: "fileName",
-                    2: "uploadedBy",
-                    3: "uploadedDate",
-                    4: "acctNo",
-                    5: "bulkId",
-                    6: "auxNo",
-                    7: "claimCode",
-                    8: "fromAcct",
-                    9: "toAcct",
-                    10: "trxnAmount",
-                    11: "trxnDesc",
-                    12: "firstName",
-                    13: "middleName",
-                    14: "lastName",
-                    15: "mobileNo",
-                    16: "optional1",
-                    17: "optional2",
-                    18: "optional3",
-                    19: "optional4",
-                    20: "optional5",
-                    21: "optional6",
-                    22: "optional7",
-                    23: "optional8",
-                    24: "optional9",
-                    25: "optional10",
-                    26: "optional11",
-                    27: "optional12",
-                    28: "respCode",
-                    29: "uploadStat",
-                    30: "trxnRefNo",
-                    31: "transactionType"
-                }
-            )
-
-        return []
+        return results, page_info

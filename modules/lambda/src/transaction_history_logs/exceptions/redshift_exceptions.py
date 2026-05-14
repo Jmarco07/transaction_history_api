@@ -14,8 +14,6 @@ class RedshiftQueryException(CustomException):
     ERROR_MESSAGE = "Redshift Query Error"
     ERROR_DETAILS = "Redshift Query Error"
 
-
-# THESE ARE SUCCESS EXCEPTIONS
 class RedshiftActiveQueryException(SuccessException):
     STATUS_CODE = 201
     EXCEPTION_CODE = "REDSHIFT_QUERY_IN_PROGRESS"

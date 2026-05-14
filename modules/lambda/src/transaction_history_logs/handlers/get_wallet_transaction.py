@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 if not hasattr(app, 'CONNECTION'):
     app.CONNECTION = None
     app.CONNECTION_TYPE = None
-    print("🚀 Lambda container initializing...")
+    print("Lambda container initializing...")
 
 
 @request_validator(model=WalletTransactionRequest)
@@ -30,7 +30,6 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         API Gateway response with transaction data or error
     """
     try:
-        # Handle keep-alive ping
         if event.get("keep_alive"):
             print("💤 Keep-alive ping received. Keeping Lambda warm...")
             try:
@@ -46,8 +45,7 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                     'statusCode': 503,
                     'body': json.dumps({'status': 'cold', 'error': str(e)})
                 }
-        
-        # Establish database connection
+
         try:
             psycopg2_connect(app)
         except Exception as e:
@@ -56,11 +54,9 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         
         print("Connection state:", "Connected" if app.CONNECTION else "Not connected")
         print("Request:", event)
-        
-        # Get validated request body from the decorator
+
         request_data = app.VALIDATED_BODY
-        
-        # Query the wallet transaction table
+
         query = """
         SELECT 
             ret_ref_id, trace_id, amount, status,
@@ -75,7 +71,6 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         """
         
         try:
-            # Rollback any existing transaction to clear the connection state
             app.CONNECTION.CLIENT.rollback()
             
             with app.CONNECTION.CLIENT.cursor() as cursor:
@@ -87,24 +82,19 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                         'statusCode': 404,
                         'body': json.dumps({'error': 'Transaction not found'})
                     }
-                
-                # Get column names from cursor description
+
                 columns = [desc[0] for desc in cursor.description]
-                
-                # Convert result to dictionary
+
                 transaction_dict = dict(zip(columns, result))
-                
-                # Convert to WalletTransaction model
+
                 wallet_transaction = WalletTransaction(**transaction_dict)
-                
-                # Return the transaction data using the standard response format
+
                 return SuccessResponse(
                     status_code=200,
                     result={"data": wallet_transaction.model_dump()}
                 )
         except Exception as db_error:
             print(f"Database query failed: {str(db_error)}")
-            # Rollback the transaction on error
             try:
                 app.CONNECTION.CLIENT.rollback()
             except:
@@ -113,7 +103,7 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 'statusCode': 500,
                 'body': json.dumps({'error': 'Database query failed'})
             }
-        
+
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         return ExceptionResponse(e)

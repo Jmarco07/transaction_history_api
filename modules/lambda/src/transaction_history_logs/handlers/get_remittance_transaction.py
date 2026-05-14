@@ -28,7 +28,6 @@ def lambda_handler(event, context) -> dict[str, Any]:
         API Gateway response with transaction data or error
     """
     
-    # Handle keep-alive ping
     if event.get("keep_alive"):
         print("💤 Keep-alive ping received. Keeping Lambda warm...")
         try:
@@ -45,7 +44,6 @@ def lambda_handler(event, context) -> dict[str, Any]:
                 'body': json.dumps({'status': 'cold', 'error': str(e)})
             }
     
-    # Establish database connection
     try:
         psycopg2_connect(app)
     except Exception as e:
@@ -54,12 +52,10 @@ def lambda_handler(event, context) -> dict[str, Any]:
     
     print("Connection state:", "Connected" if app.CONNECTION else "Not connected")
     print("Request:", event)
-    
-    # Get validated request body from the decorator
+
     body = app.VALIDATED_BODY
     
     try:
-        # Get remittance transaction from repository
         remittance_transaction = RemittanceTransactionRepository.get(
             connection=app.CONNECTION,
             get_remittance_transaction_request=body
@@ -71,14 +67,12 @@ def lambda_handler(event, context) -> dict[str, Any]:
                 'body': json.dumps({'error': 'Transaction not found'})
             }
         
-        # Convert to dict for response
         transaction_data = (
             remittance_transaction.model_dump() 
             if hasattr(remittance_transaction, "model_dump") 
             else remittance_transaction.__dict__
         )
-        
-        # Build response - return the transaction data directly as per the sample JSON
+
         response = {
             "result": transaction_data
         }

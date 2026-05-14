@@ -20,7 +20,7 @@ def test_redshift_query():
     try:
         cur.execute("SELECT current_database(), current_user;")
         db, user = cur.fetchone()
-        print(f"📌 Connected to database: {db} as user: {user}")
+        print(f"Connected to database: {db} as user: {user}")
 
         cur.execute("SELECT schema_name FROM information_schema.schemata ORDER BY schema_name;")
         schemas = cur.fetchall()
@@ -36,12 +36,12 @@ def test_redshift_query():
             LIMIT 50;
         """)
         tables = cur.fetchall()
-        print("\n📑 All accessible tables (first 50):")
+        print("\n All accessible tables (first 50):")
         if tables:
             for schema, table in tables:
                 print(f" - {schema}.{table}")
         else:
-            print("❌ No tables visible with current user/permissions.")
+            print("No tables visible with current user/permissions.")
 
         try:
             cur.execute("SELECT * FROM target.data_load_metrics LIMIT 5;")
@@ -51,12 +51,12 @@ def test_redshift_query():
                 for row in rows:
                     print(row)
             else:
-                print("❌ No rows found in target.data_load_metrics.")
+                print("No rows found in target.data_load_metrics.")
         except psycopg2.errors.UndefinedTable:
-            print("❌ Table target.data_load_metrics does not exist or is not accessible.")
+            print("Table target.data_load_metrics does not exist or is not accessible.")
 
     except Exception as e:
-        print("❌ Query failed:", str(e))
+        print("Query failed:", str(e))
 
     finally:
         cur.close()

@@ -1,0 +1,111 @@
+import base64
+from typing import List, Tuple
+from models.requests.get_pesonet_transaction import GetPesonetTransactionRequest
+from models.pesonet_transaction_model import PesonetTransaction
+
+
+class PesonetTransactionRepository:
+
+    @staticmethod
+    def encode_cursor(aux_no: str) -> str:
+        return base64.b64encode(f"aux_no:{aux_no}".encode()).decode()
+
+    @staticmethod
+    def decode_cursor(cursor: str) -> str:
+        decoded = base64.b64decode(cursor.encode()).decode()
+        return decoded.split(":", 1)[1]
+
+    @classmethod
+    def get(cls, connection, request: GetPesonetTransactionRequest) -> Tuple[List[PesonetTransaction], dict]:
+        params = []
+        filters = []
+
+        if request.accountNumber:
+            filters.append("TRIM(acc_id) = %s")
+            params.append(request.accountNumber)
+
+        if request.status:
+            filters.append("TRIM(stat_desc) = %s")
+            params.append(request.status)
+
+        if request.fromDate and request.toDate:
+            filters.append("add_date BETWEEN %s AND %s")
+            params.extend([f"{request.fromDate} 00:00:00", f"{request.toDate} 23:59:59"])
+        elif request.fromDate:
+            filters.append("add_date >= %s")
+            params.append(f"{request.fromDate} 00:00:00")
+        elif request.toDate:
+            filters.append("add_date <= %s")
+            params.append(f"{request.toDate} 23:59:59")
+
+        if request.cursor:
+            cursor_value = cls.decode_cursor(request.cursor)
+            filters.append("aux_no < %s")
+            params.append(cursor_value)
+
+        where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
+
+        params.append(request.limit + 1)
+
+        query = f"""
+        SELECT
+            add_date, aux_no, trxn_reference_number, trxn_typ, trxn_type_desc,
+            trx_amt, cur_id, acc_id, ext_rcvr_bnk_id, ext_rcvr_bnk_name,
+            ext_acc_id, stat, resp_code, resp_desc, stat_desc,
+            merchant_id, msg_id, load_datetime
+        FROM target.megalink_pesonet_trxn_hist_fct
+        {where_clause}
+        ORDER BY aux_no DESC
+        LIMIT %s
+        """
+
+        try:
+            connection.CLIENT.rollback()
+
+            with connection.CLIENT.cursor() as cursor:
+                cursor.execute(query, tuple(params))
+                rows = cursor.fetchall()
+
+                if not rows:
+                    page_info = {
+                        "hasNextPage": False,
+                        "hasPreviousPage": request.cursor is not None,
+                        "startCursor": None,
+                        "endCursor": None,
+                    }
+                    return [], page_info
+
+                columns = [desc[0] for desc in cursor.description]
+
+                results = []
+                for row in rows:
+                    transaction_dict = {}
+                    for i, column in enumerate(columns):
+                        value = row[i]
+                        transaction_dict[column] = "" if value is None else value
+                    results.append(PesonetTransaction(**transaction_dict))
+
+                has_next_page = len(results) > request.limit
+                if has_next_page:
+                    results = results[:request.limit]
+
+                has_previous_page = request.cursor is not None
+                start_cursor = cls.encode_cursor(results[0].aux_no) if results else None
+                end_cursor = cls.encode_cursor(results[-1].aux_no) if results else None
+
+                page_info = {
+                    "hasNextPage": has_next_page,
+                    "hasPreviousPage": has_previous_page,
+                    "startCursor": start_cursor,
+                    "endCursor": end_cursor,
+                }
+
+                return results, page_info
+
+        except Exception as e:
+            print(f"Database query failed in PesonetTransactionRepository: {str(e)}")
+            try:
+                connection.CLIENT.rollback()
+            except:
+                pass
+            raise e

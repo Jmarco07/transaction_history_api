@@ -32,37 +32,3 @@ class AgentTransaction(BaseModel):
     insFlag: Optional[str] = None
 
 
-
-class CorporateTransaction(BaseModel):
-    fileName: Optional[str] = None
-    uploadedBy: Optional[str] = None
-    uploadedDate: Optional[str] = None
-    acctNo: Optional[str] = None
-    bulkId: Optional[str] = None
-    auxNo: Optional[str] = None
-    claimCode: Optional[str] = None
-    fromAcct: Optional[str] = None
-    toAcct: Optional[str] = None
-    trxnAmount: Optional[Decimal] = None
-    trxnDesc: Optional[str] = None
-    firstName: Optional[str] = None
-    middleName: Optional[str] = None
-    lastName: Optional[str] = None
-    mobileNo: Optional[str] = None
-    optional1: Optional[str] = None
-    optional2: Optional[str] = None
-    optional3: Optional[str] = None
-    optional4: Optional[str] = None
-    optional5: Optional[str] = None
-    optional6: Optional[str] = None
-    optional7: Optional[str] = None
-    optional8: Optional[str] = None
-    optional9: Optional[str] = None
-    optional10: Optional[str] = None
-    optional11: Optional[str] = None
-    optional12: Optional[str] = None
-    respCode: Optional[str] = None
-    uploadStat: Optional[str] = None
-    trxnRefNo: Optional[str] = None
-    transactionType: Optional[str] = None
-

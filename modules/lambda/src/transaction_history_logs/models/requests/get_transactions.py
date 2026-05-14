@@ -8,17 +8,14 @@ from handlers.defaults.top_level import app
 date_today = datetime.today()
 
 AGENT_ORDER_BY = ["trxndate", "trxntypeno", "amount"]
-PARTNER_ORDER_BY = ["uploaded_date", "trxn_amt", "transactionType"]
 
 ALLOWED_FIELDS = {
-    "corporate": {"type", "retRefNo", "transactionType", "status",
-        "startDate", "end_date", "offset", "limit", "sort", "orderBy", "id"},
     "agent": {"type", "retRefNo", "processedBy", "transactionType",
         "serviceType", "traceNo", "amount", "status",
-        "startDate", "end_date", "offset", "limit", "sort", "orderBy", "id"},
+        "startDate", "end_date", "cursor", "limit", "sort", "orderBy", "id"},
     "user": {"type", "retRefNo", "processedBy", "transactionType",
         "serviceType", "traceNo", "amount", "status",
-        "startDate", "end_date", "offset", "limit", "sort", "orderBy", "id"},
+        "startDate", "end_date", "cursor", "limit", "sort", "orderBy", "id"},
 }
 
 def check_order_by(value, info):
@@ -35,9 +32,9 @@ def check_order_by(value, info):
         )
 
     if not value:
-        value = "uploaded_date" if user_type == "corporate" else "trxndate"
+        value = "trxndate"
 
-    valid_order_by = PARTNER_ORDER_BY if user_type == "corporate" else AGENT_ORDER_BY
+    valid_order_by = AGENT_ORDER_BY
     if value not in valid_order_by:
         raise ValueError(
             f"Invalid orderBy value for type '{user_type}'. "
@@ -52,7 +49,7 @@ def get_90_days_ago(date=None) -> str:
         date = date_today
     return (date - timedelta(days=90)).strftime("%Y-%m-%d")
 
-def check_90_day_limit(string_date):
+def check_date_not_future(string_date):
     if isinstance(string_date, datetime):
         date = string_date
     else:
@@ -60,8 +57,6 @@ def check_90_day_limit(string_date):
 
     if date.date() > date_today.date():
         raise ValueError("start date or end date must not be greater than today's date.")
-    delta_days = (date_today - date).days
-    assert delta_days <= 90, "For transaction history beyond T-90 days, please contact Customer Support."
     return string_date
 
 def check_start_and_end_date(string_date, info):
@@ -91,12 +86,16 @@ def check_start_and_end_date(string_date, info):
     if start_dt > end_dt:
         raise ValueError("start date must not be greater than end date")
 
+    delta_days = (end_dt - start_dt).days
+    if delta_days > 90:
+        raise ValueError("For transaction history beyond T-90 days, please contact Customer Support.")
+
     return string_date
 
 
 
 class GetTransactionsRequest(BaseModel):
-    type: Literal["corporate", "agent", "user"]
+    type: Literal["agent", "user"]
     id: Optional[List[str]] = None
     retRefNo: Optional[List[str]] = None
     processedBy: Optional[List[str]] = None
@@ -108,17 +107,17 @@ class GetTransactionsRequest(BaseModel):
 
     startDate: Annotated[
         str,
-        AfterValidator(check_90_day_limit),
+        AfterValidator(check_date_not_future),
         AfterValidator(check_start_and_end_date),
     ] = Field(
         default_factory=get_90_days_ago,
         pattern=r"\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])",
     )
-    offset: int = Field(default=1)
+    cursor: Optional[str] = None
     limit: int = Field(default=5000)
     orderBy: Annotated[Optional[str], AfterValidator(check_order_by)] = None
     sort: Literal["ASC", "DESC"] = Field(default="DESC")
-    end_date: Annotated[str, AfterValidator(check_90_day_limit)] = Field(
+    end_date: Annotated[str, AfterValidator(check_date_not_future)] = Field(
         default_factory=lambda: (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d"),
         pattern=r"\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])",
     )

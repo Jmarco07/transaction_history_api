@@ -19,17 +19,17 @@ def psycopg2_connect(app: App):
             with app.CONNECTION.CLIENT.cursor() as cur:
                 cur.execute("SELECT 1")
                 cur.fetchone()
-            print("✅ Reusing existing healthy connection")
+            print("Reusing existing healthy connection")
             return app.CONNECTION
         except (psycopg2.OperationalError, psycopg2.InterfaceError, AttributeError) as e:
-            print(f"⚠️ Existing connection is stale: {e}")
+            print(f"Existing connection is stale: {e}")
             try:
                 app.CONNECTION.CLIENT.close()
             except:
                 pass
             app.CONNECTION = None
 
-    print("🔌 CONNECTING TO DATABASE . . .")
+    print("CONNECTING TO DATABASE . . .")
     
     try:
         credentials = SecretRepository.get_redshift_credentials(
@@ -84,7 +84,7 @@ def redshift_data_connect(app: App):
         return app.CONNECTION
 
     try:
-        print("🔌 CONNECTING TO REDSHIFT DATA API . . .")
+        print("CONNECTING TO REDSHIFT DATA API . . .")
 
         class RedshiftDataBoto3:
             CONNECTION_TYPE = "REDSHIFT_DATA"
@@ -100,7 +100,7 @@ def redshift_data_connect(app: App):
         return RedshiftDataBoto3
 
     except Exception as e:
-        print("❌ ERROR: Could not connect to Redshift Data API.")
+        print("ERROR: Could not connect to Redshift Data API.")
         print(f"Error details: {str(e)}")
 
         app.CONNECTION = None

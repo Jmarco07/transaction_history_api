@@ -138,7 +138,6 @@ def SQLFactory(model: BaseModel):
                     if connection_type == "PSYCOPG2":
                         processed_row[col_name] = col_data
                     elif connection_type == "REDSHIFT_DATA":
-                        # Handle Data API format
                         value = None
                         for key, val in col_data.items():
                             if key == "isNull" and val:

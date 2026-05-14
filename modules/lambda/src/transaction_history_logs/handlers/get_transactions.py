@@ -20,13 +20,13 @@ s3_client = boto3.client("s3")
 if not hasattr(app, 'CONNECTION'):
     app.CONNECTION = None
     app.CONNECTION_TYPE = None
-    print("🚀 Lambda container initializing...")
+    print("Lambda container initializing...")
 
 @request_validator(model=GetTransactionsRequest)
 def lambda_handler(event, context) -> dict[str, Any]:
 
     if event.get("keep_alive"):
-        print("💤 Keep-alive ping received. Keeping Lambda warm...")
+        print("Keep-alive ping received. Keeping Lambda warm...")
         try:
             psycopg2_connect(app)
             print("Connection active.")
@@ -53,7 +53,7 @@ def lambda_handler(event, context) -> dict[str, Any]:
     body = app.VALIDATED_BODY
 
     try:
-        transactions = TransactionRepository.get(
+        transactions, page_info = TransactionRepository.get(
             connection=app.CONNECTION,
             get_transactions_request=body
         )
@@ -89,7 +89,7 @@ def lambda_handler(event, context) -> dict[str, Any]:
         response = {
             "result": {"data": transactions},
             "limit": body.limit,
-            "offset": body.offset,
+            "pageInfo": page_info,
         }
         return SuccessResponse(**GetTransactionsResponse(**response).model_dump())
 

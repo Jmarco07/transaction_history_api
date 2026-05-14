@@ -12,7 +12,7 @@ from utilities.request_validator import request_validator
 if not hasattr(app, 'CONNECTION'):
     app.CONNECTION = None
     app.CONNECTION_TYPE = None
-    print("🚀 Lambda container initializing...")
+    print("Lambda container initializing...")
 
 
 @request_validator(model=GetWalletTransactionRequest)
@@ -27,10 +27,9 @@ def lambda_handler(event, context) -> dict[str, Any]:
     Returns:
         API Gateway response with transaction data or error
     """
-    
-    # Handle keep-alive ping
+
     if event.get("keep_alive"):
-        print("💤 Keep-alive ping received. Keeping Lambda warm...")
+        print("Keep-alive ping received. Keeping Lambda warm...")
         try:
             psycopg2_connect(app)
             print("Connection active.")
@@ -44,8 +43,7 @@ def lambda_handler(event, context) -> dict[str, Any]:
                 'statusCode': 503,
                 'body': json.dumps({'status': 'cold', 'error': str(e)})
             }
-    
-    # Establish database connection
+
     try:
         psycopg2_connect(app)
     except Exception as e:
@@ -54,12 +52,10 @@ def lambda_handler(event, context) -> dict[str, Any]:
     
     print("Connection state:", "Connected" if app.CONNECTION else "Not connected")
     print("Request:", event)
-    
-    # Get validated request body from the decorator
+
     body = app.VALIDATED_BODY
     
     try:
-        # Get wallet transaction from repository
         wallet_transaction = WalletTransactionRepository.get(
             connection=app.CONNECTION,
             get_wallet_transaction_request=body
@@ -70,15 +66,13 @@ def lambda_handler(event, context) -> dict[str, Any]:
                 'statusCode': 404,
                 'body': json.dumps({'error': 'Transaction not found'})
             }
-        
-        # Convert to dict for response
+
         transaction_data = (
             wallet_transaction.model_dump() 
             if hasattr(wallet_transaction, "model_dump") 
             else wallet_transaction.__dict__
         )
-        
-        # Build response
+
         response = {
             "result": {"data": transaction_data}
         }

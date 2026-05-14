@@ -68,6 +68,18 @@ module "api_gateway" {
       requires_auth   = true
     },
     {
+      function_name   = "corporate_transaction",
+      route_key       = "POST /v1/api/corporate-transaction-history",
+      integration_uri = module.lambda_functions.lambda_arns["corporate_transaction"]
+      requires_auth   = true
+    },
+    {
+      function_name   = "pesonet_transaction",
+      route_key       = "POST /v1/api/pesonet-transaction-history",
+      integration_uri = module.lambda_functions.lambda_arns["pesonet_transaction"]
+      requires_auth   = true
+    },
+    {
       function_name   = "generate_cauth_token",
       route_key       = "POST /v1/api/generate_token",
       integration_uri = module.lambda_functions.lambda_arns["generate_cauth_token"]
@@ -123,6 +135,8 @@ module "lambda_functions" {
     { function_name = "remittance_transaction" },
     { function_name = "qr_emvco_transaction" },
     { function_name = "ibank_ft_transaction" },
+    { function_name = "corporate_transaction" },
+    { function_name = "pesonet_transaction" },
   ]
 
   lambda_layer_list = [
@@ -146,6 +160,12 @@ module "lambda_functions" {
     },
     {
       name = "ibank_ft_transaction"
+    },
+    {
+      name = "corporate_transaction"
+    },
+    {
+      name = "pesonet_transaction"
     }
   ]
 
@@ -164,6 +184,12 @@ module "lambda_functions" {
     },
     {
       name = "ibank_ft_transaction"
+    },
+    {
+      name = "corporate_transaction"
+    },
+    {
+      name = "pesonet_transaction"
     },
   ]
 
@@ -322,6 +348,50 @@ module "lambda_functions" {
       description   = "Redshift API IBank Fund Transfer Transaction History function",
       role          = "${local.common.project_name}-ibank_ft_transaction-lambda-role-${local.common.environment}",
       handler       = "handlers.get_ibank_ft_transaction.lambda_handler",
+      runtime       = "python3.11",
+      memory_size   = 512,
+      timeout       = 60,
+      layers        = ["redshift-api-layer-v1"],
+      vpc_config = {
+        subnet_ids         = var.lambda_vpc_subnet_ids
+        security_group_ids = var.lambda_security_group_ids
+      },
+      variables = {
+        REDSHIFT_ENDPOINT       = var.redshift_endpoint
+        REDSHIFT_DATABASE_NAME  = var.redshift_database_name
+        REDSHIFT_WORKGROUP_NAME = var.redshift_workgroup_name
+        REDSHIFT_SECRET_NAME    = "${module.secrets.redshift_lambda_user_secret_name}"
+        TZ                      = "Asia/Manila"
+      }
+    },
+    {
+      stack_name    = "transaction_history_logs",
+      function_name = "corporate_transaction",
+      description   = "Redshift API Corporate Transaction History function",
+      role          = "${local.common.project_name}-corporate_transaction-lambda-role-${local.common.environment}",
+      handler       = "handlers.get_corporate_transaction.lambda_handler",
+      runtime       = "python3.11",
+      memory_size   = 512,
+      timeout       = 60,
+      layers        = ["redshift-api-layer-v1"],
+      vpc_config = {
+        subnet_ids         = var.lambda_vpc_subnet_ids
+        security_group_ids = var.lambda_security_group_ids
+      },
+      variables = {
+        REDSHIFT_ENDPOINT       = var.redshift_endpoint
+        REDSHIFT_DATABASE_NAME  = var.redshift_database_name
+        REDSHIFT_WORKGROUP_NAME = var.redshift_workgroup_name
+        REDSHIFT_SECRET_NAME    = "${module.secrets.redshift_lambda_user_secret_name}"
+        TZ                      = "Asia/Manila"
+      }
+    },
+    {
+      stack_name    = "transaction_history_logs",
+      function_name = "pesonet_transaction",
+      description   = "Redshift API PESONet Transaction History function",
+      role          = "${local.common.project_name}-pesonet_transaction-lambda-role-${local.common.environment}",
+      handler       = "handlers.get_pesonet_transaction.lambda_handler",
       runtime       = "python3.11",
       memory_size   = 512,
       timeout       = 60,

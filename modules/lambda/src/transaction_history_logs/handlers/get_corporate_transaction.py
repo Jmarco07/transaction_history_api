@@ -3,9 +3,9 @@ from typing import Any
 
 from handlers.defaults.db import psycopg2_connect
 from handlers.defaults.top_level import app
-from models.requests.get_ibank_ft_transaction import GetIbankFtTransactionRequest
-from models.responses.get_ibank_ft_transaction import GetIbankFtTransactionResponse
-from repositories.ibank_ft_transaction_repository import IbankFtTransactionRepository
+from models.requests.get_corporate_transaction import GetCorporateTransactionRequest
+from models.responses.get_corporate_transaction import GetCorporateTransactionResponse
+from repositories.corporate_transaction_repository import CorporateTransactionRepository
 from utilities.base_response import SuccessResponse
 from utilities.request_validator import request_validator
 
@@ -15,7 +15,7 @@ if not hasattr(app, 'CONNECTION'):
     print("🚀 Lambda container initializing...")
 
 
-@request_validator(model=GetIbankFtTransactionRequest)
+@request_validator(model=GetCorporateTransactionRequest)
 def lambda_handler(event, context) -> dict[str, Any]:
     if event.get("keep_alive"):
         print("💤 Keep-alive ping received. Keeping Lambda warm...")
@@ -40,26 +40,22 @@ def lambda_handler(event, context) -> dict[str, Any]:
     body = app.VALIDATED_BODY
 
     try:
-        transaction = IbankFtTransactionRepository.get(
+        transactions, page_info = CorporateTransactionRepository.get(
             connection=app.CONNECTION,
-            get_ibank_ft_transaction_request=body
+            request=body
         )
 
-        if not transaction:
-            return {
-                'statusCode': 404,
-                'body': json.dumps({'error': 'Transaction not found'})
-            }
+        transaction_data = [
+            t.model_dump() if hasattr(t, "model_dump") else t.__dict__
+            for t in transactions
+        ]
 
-        transaction_data = (
-            transaction.model_dump()
-            if hasattr(transaction, "model_dump")
-            else transaction.__dict__
-        )
+        response = {
+            "result": transaction_data,
+            "pageInfo": page_info,
+        }
 
-        response = {"result": transaction_data}
-
-        return SuccessResponse(**GetIbankFtTransactionResponse(**response).model_dump())
+        return SuccessResponse(**GetCorporateTransactionResponse(**response).model_dump())
 
     except Exception as e:
         print(f"Query failed: {e}")

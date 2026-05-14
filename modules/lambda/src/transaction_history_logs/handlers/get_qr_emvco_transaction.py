@@ -17,7 +17,6 @@ if not hasattr(app, 'CONNECTION'):
 
 @request_validator(model=GetQrEmvcoTransactionRequest)
 def lambda_handler(event, context) -> dict[str, Any]:
-    # Handle keep-alive ping
     if event.get("keep_alive"):
         print("💤 Keep-alive ping received. Keeping Lambda warm...")
         try:
@@ -32,7 +31,6 @@ def lambda_handler(event, context) -> dict[str, Any]:
                 'body': json.dumps({'status': 'cold', 'error': str(e)})
             }
 
-    # Establish database connection
     try:
         psycopg2_connect(app)
     except Exception as e:

@@ -32,7 +32,6 @@ class WalletTransactionRepository:
         """
         
         try:
-            # Rollback any existing transaction to clear the connection state
             connection.CLIENT.rollback()
             
             with connection.CLIENT.cursor() as cursor:
@@ -41,19 +40,15 @@ class WalletTransactionRepository:
                 
                 if not result:
                     return None
-                
-                # Get column names from cursor description
+
                 columns = [desc[0] for desc in cursor.description]
-                
-                # Convert result to dictionary
+
                 transaction_dict = dict(zip(columns, result))
-                
-                # Convert to WalletTransaction model
+
                 return WalletTransaction(**transaction_dict)
                 
         except Exception as e:
             print(f"Database query failed in WalletTransactionRepository: {str(e)}")
-            # Rollback the transaction on error
             try:
                 connection.CLIENT.rollback()
             except:

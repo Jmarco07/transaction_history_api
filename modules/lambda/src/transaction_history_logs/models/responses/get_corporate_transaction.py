@@ -1,6 +1,5 @@
 from typing import Optional
 from pydantic import BaseModel
-from models.transaction_model import AgentTransaction
 
 
 class PageInfo(BaseModel):
@@ -10,11 +9,6 @@ class PageInfo(BaseModel):
     endCursor: Optional[str] = None
 
 
-class GetTransactionsResultDict(BaseModel):
-    data: list[AgentTransaction]
-
-
-class GetTransactionsResponse(BaseModel):
-    limit: int
+class GetCorporateTransactionResponse(BaseModel):
+    result: list[dict]
     pageInfo: PageInfo
-    result: GetTransactionsResultDict

@@ -67,7 +67,12 @@ def _validate_data(
     except ValidationError as e:
         errors: dict[Any, Any] = {}
         for error in e.errors():
-            errors[error["loc"][0]] = error["msg"]
+            loc = error.get("loc", ())
+            field_name = loc[0] if loc else "date"
+            msg = error["msg"]
+            if msg.startswith("Value error, "):
+                msg = msg[len("Value error, "):]
+            errors[field_name] = msg
 
         print("VALIDATION_ERRORS: ", errors)
         return errors

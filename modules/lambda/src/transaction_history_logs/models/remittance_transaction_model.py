@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 
 
 class RemittanceTransaction(BaseModel):
-    # DE fields 1-56 (character varying(100))
     de1: Optional[str] = ""
     de3: Optional[str] = ""
     de4: Optional[str] = ""
@@ -60,11 +59,7 @@ class RemittanceTransaction(BaseModel):
     de54: Optional[str] = ""
     de55: Optional[str] = ""
     de56: Optional[str] = ""
-    
-    # DE57 (character varying(200))
     de57: Optional[str] = ""
-    
-    # DE fields 58-77 (character varying(100))
     de58: Optional[str] = ""
     de59: Optional[str] = ""
     de60: Optional[str] = ""
@@ -85,11 +80,7 @@ class RemittanceTransaction(BaseModel):
     de75: Optional[str] = ""
     de76: Optional[str] = ""
     de77: Optional[str] = ""
-    
-    # DE78 (character varying(200))
     de78: Optional[str] = ""
-    
-    # DE fields 79-156 (character varying(100))
     de79: Optional[str] = ""
     de80: Optional[str] = ""
     de81: Optional[str] = ""
@@ -168,11 +159,7 @@ class RemittanceTransaction(BaseModel):
     de154: Optional[str] = ""
     de155: Optional[str] = ""
     de156: Optional[str] = ""
-    
-    # DE157 (character varying(200))
     de157: Optional[str] = ""
-    
-    # DE fields 158-175 (character varying(100))
     de158: Optional[str] = ""
     de159: Optional[str] = ""
     de160: Optional[str] = ""
@@ -191,8 +178,6 @@ class RemittanceTransaction(BaseModel):
     de173: Optional[str] = ""
     de174: Optional[str] = ""
     de175: Optional[str] = ""
-    
-    # Response codes and descriptions (character varying(100))
     resp_code_1: Optional[str] = ""
     resp_desc_1: Optional[str] = ""
     resp_code_2: Optional[str] = ""
@@ -201,8 +186,6 @@ class RemittanceTransaction(BaseModel):
     resp_desc_4: Optional[str] = ""
     resp_code_5: Optional[str] = ""
     resp_desc_5: Optional[str] = ""
-    
-    # Additional fields (character varying(100))
     status_code: Optional[str] = ""
     batch_id: Optional[str] = ""
     mto_ref_no: Optional[str] = ""
@@ -211,15 +194,9 @@ class RemittanceTransaction(BaseModel):
     user_id: Optional[str] = ""
     last_modified_by: Optional[str] = ""
     added_by: Optional[str] = ""
-    
-    # Remit ident detail (character varying(200))
     remit_ident_detail: Optional[str] = ""
-    
-    # Date fields (character varying(255))
     last_modified_date: Optional[str] = ""
     added_date: Optional[str] = ""
-    
-    # Timestamp field
     load_datetime: Optional[datetime] = None
 
 
