@@ -3,10 +3,9 @@ from typing import Any
 
 from handlers.defaults.db import psycopg2_connect
 from handlers.defaults.top_level import app
-from exceptions.request_exceptions import BadRequestException
-from models.requests.get_remittance_transaction import GetRemittanceTransactionRequest
-from models.responses.get_remittance_transaction import GetRemittanceTransactionResponse
-from repositories.remittance_transaction_repository import RemittanceTransactionRepository
+from models.requests.get_bulk_pepp_disbursement import GetBulkPeppDisbursementRequest
+from models.responses.get_bulk_pepp_disbursement import GetBulkPeppDisbursementResponse
+from repositories.bulk_pepp_disbursement_repository import BulkPeppDisbursementRepository
 from utilities.base_response import SuccessResponse
 from utilities.request_validator import request_validator
 
@@ -16,8 +15,14 @@ if not hasattr(app, 'CONNECTION'):
     print("🚀 Lambda container initializing...")
 
 
-@request_validator(model=GetRemittanceTransactionRequest)
+@request_validator(model=GetBulkPeppDisbursementRequest)
 def lambda_handler(event, context) -> dict[str, Any]:
+    """
+    Lambda handler for bulk PEPP disbursement transaction history.
+    Supports dynamic filtering and cursor-based pagination.
+    """
+
+    # Handle keep-alive ping
     if event.get("keep_alive"):
         print("💤 Keep-alive ping received. Keeping Lambda warm...")
         try:
@@ -34,6 +39,7 @@ def lambda_handler(event, context) -> dict[str, Any]:
                 'body': json.dumps({'status': 'cold', 'error': str(e)})
             }
 
+    # Establish database connection
     try:
         psycopg2_connect(app)
     except Exception as e:
@@ -43,41 +49,32 @@ def lambda_handler(event, context) -> dict[str, Any]:
     print("Connection state:", "Connected" if app.CONNECTION else "Not connected")
     print("Request:", event)
 
+    # Get validated request body from the decorator
     body = app.VALIDATED_BODY
 
-    # Validate de159 - return 400 Bad Request
-    if not body.de159 or body.de159.strip() == "":
-        raise BadRequestException(
-            custom_error_details="de159 is required"
-        )
-    if len(body.de159) > 500:
-        raise BadRequestException(
-            custom_error_details="de159 must not exceed 500 characters"
-        )
-
     try:
-        remittance_transaction = RemittanceTransactionRepository.get(
+        # Get transactions from repository
+        transactions, page_info = BulkPeppDisbursementRepository.get(
             connection=app.CONNECTION,
-            get_remittance_transaction_request=body
+            get_bulk_pepp_disbursement_request=body
         )
 
-        if not remittance_transaction:
-            return {
-                'statusCode': 404,
-                'body': json.dumps({'error': 'Transaction not found'})
-            }
+        # Convert to list of dicts
+        transactions_data = [
+            t.model_dump() if hasattr(t, "model_dump") else t.__dict__
+            for t in transactions
+        ]
 
-        transaction_data = (
-            remittance_transaction.model_dump()
-            if hasattr(remittance_transaction, "model_dump")
-            else remittance_transaction.__dict__
-        )
+        total_records = len(transactions_data)
+        print(f"Fetched {total_records} transactions")
 
+        # Build response
         response = {
-            "result": {"data": transaction_data}
+            "result": {"data": transactions_data},
+            "pageInfo": page_info,
         }
 
-        return SuccessResponse(**GetRemittanceTransactionResponse(**response).model_dump())
+        return SuccessResponse(**GetBulkPeppDisbursementResponse(**response).model_dump())
 
     except Exception as e:
         print(f"Query failed: {e}")

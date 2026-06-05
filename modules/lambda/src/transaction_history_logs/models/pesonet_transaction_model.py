@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from utilities.date_converter import to_gmt8
 
 
 class PesonetTransaction(BaseModel):
@@ -22,3 +23,8 @@ class PesonetTransaction(BaseModel):
     merchant_id: Optional[str] = ""
     msg_id: Optional[str] = ""
     load_datetime: Optional[datetime] = None
+
+    @field_validator("add_date", mode="before")
+    @classmethod
+    def convert_dates(cls, v):
+        return to_gmt8(v)

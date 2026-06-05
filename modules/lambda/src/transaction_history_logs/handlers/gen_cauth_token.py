@@ -15,7 +15,6 @@ def generate_secret(length=16):
 
 def generate_jwt_token(sub, aud, secret):
     now_utc = datetime.datetime.now(datetime.timezone.utc)
-
     exp_utc = now_utc + datetime.timedelta(days=365)
 
     payload = {
@@ -26,6 +25,17 @@ def generate_jwt_token(sub, aud, secret):
     }
 
     return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def get_existing_token(sub, aud):
+    table_name = os.getenv("CAUTH_TOKENS_DDB")
+    table = boto3.resource("dynamodb").Table(table_name)
+
+    try:
+        response = table.get_item(Key={"sub": sub, "aud": aud})
+        return response.get("Item")
+    except ClientError:
+        return None
 
 
 def put_item(item):
@@ -73,6 +83,22 @@ def lambda_handler(event, context=None):
         }
 
     try:
+        # Check if a valid token already exists
+        existing = get_existing_token(sub, aud)
+        if existing:
+            now_utc = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+            if existing.get("exp") and int(existing["exp"]) > now_utc:
+                return {
+                    "statusCode": 200,
+                    "body": json.dumps({
+                        "message": "Existing token is still valid",
+                        "token": existing["token"],
+                        "expires_at": datetime.datetime.utcfromtimestamp(int(existing["exp"])).isoformat() + "Z"
+                    }),
+                    "headers": {"Content-Type": "application/json"}
+                }
+
+        # Generate new token if no existing or expired
         secret = generate_secret()
         token = generate_jwt_token(sub, aud, secret)
 

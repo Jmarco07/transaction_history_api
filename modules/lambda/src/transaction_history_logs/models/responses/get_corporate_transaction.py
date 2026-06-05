@@ -9,6 +9,10 @@ class PageInfo(BaseModel):
     endCursor: Optional[str] = None
 
 
+class CorporateTransactionResultDict(BaseModel):
+    data: list[dict]
+
+
 class GetCorporateTransactionResponse(BaseModel):
-    result: list[dict]
+    result: CorporateTransactionResultDict
     pageInfo: PageInfo

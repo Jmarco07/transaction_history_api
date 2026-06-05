@@ -1,5 +1,9 @@
-from models.transaction_view_model import TransactionView
 from pydantic import BaseModel
 
+
+class TransactionViewResultDict(BaseModel):
+    data: dict
+
+
 class TransactionViewResponse(BaseModel):
-    result: TransactionView
+    result: TransactionViewResultDict

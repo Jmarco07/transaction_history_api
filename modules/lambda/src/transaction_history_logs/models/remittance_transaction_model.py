@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from utilities.date_converter import to_gmt8
 
 
 class RemittanceTransaction(BaseModel):
@@ -198,6 +199,11 @@ class RemittanceTransaction(BaseModel):
     last_modified_date: Optional[str] = ""
     added_date: Optional[str] = ""
     load_datetime: Optional[datetime] = None
+
+    @field_validator("last_modified_date", "added_date", "br_settle_tmst", mode="before")
+    @classmethod
+    def convert_dates(cls, v):
+        return to_gmt8(v)
 
 
 class RemittanceTransactionRequest(BaseModel):

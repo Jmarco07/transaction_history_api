@@ -1,7 +1,8 @@
 from typing import Optional, Any
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from utilities.date_converter import to_gmt8
 
 
 class TransactionView(BaseModel):
@@ -53,3 +54,8 @@ class TransactionView(BaseModel):
     transactionId: Optional[str] = None
     token: Optional[str] = None
     bank: Optional[str] = None
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def convert_dates(cls, v):
+        return to_gmt8(v)

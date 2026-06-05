@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from utilities.date_converter import to_gmt8
 
 
 class QrEmvcoTransaction(BaseModel):
@@ -92,3 +93,8 @@ class QrEmvcoTransaction(BaseModel):
     mdfy_by: Optional[str] = ""
     mdfy_date: Optional[str] = ""
     load_datetime: Optional[datetime] = None
+
+    @field_validator("add_date", "mdfy_date", mode="before")
+    @classmethod
+    def convert_dates(cls, v):
+        return to_gmt8(v)

@@ -9,6 +9,10 @@ class PageInfo(BaseModel):
     endCursor: Optional[str] = None
 
 
+class PesonetTransactionResultDict(BaseModel):
+    data: list[dict]
+
+
 class GetPesonetTransactionResponse(BaseModel):
-    result: list[dict]
+    result: PesonetTransactionResultDict
     pageInfo: PageInfo

@@ -57,7 +57,7 @@ def lambda_handler(event, context) -> dict[str, Any]:
             else transaction.__dict__
         )
 
-        response = {"result": transaction_data}
+        response = {"result": {"data": transaction_data}}
 
         return SuccessResponse(**GetQrEmvcoTransactionResponse(**response).model_dump())
 

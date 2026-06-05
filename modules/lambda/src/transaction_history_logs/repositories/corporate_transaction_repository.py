@@ -2,6 +2,7 @@ import base64
 from typing import List, Tuple, Optional
 from models.requests.get_corporate_transaction import GetCorporateTransactionRequest
 from models.corporate_transaction_model import CorporateTransaction
+from utilities.date_filter import to_start_of_day, to_end_of_day
 
 
 class CorporateTransactionRepository:
@@ -41,14 +42,14 @@ class CorporateTransactionRepository:
             params.append(request.status)
 
         if request.fromDate and request.toDate:
-            filters.append("trx_date BETWEEN %s AND %s")
-            params.extend([f"{request.fromDate} 00:00:00", f"{request.toDate} 23:59:59"])
+            filters.append("CAST(trx_date AS TIMESTAMP) BETWEEN CAST(%s AS TIMESTAMP) AND CAST(%s AS TIMESTAMP)")
+            params.extend([to_start_of_day(request.fromDate), to_end_of_day(request.toDate)])
         elif request.fromDate:
-            filters.append("trx_date >= %s")
-            params.append(f"{request.fromDate} 00:00:00")
+            filters.append("CAST(trx_date AS TIMESTAMP) >= CAST(%s AS TIMESTAMP)")
+            params.append(to_start_of_day(request.fromDate))
         elif request.toDate:
-            filters.append("trx_date <= %s")
-            params.append(f"{request.toDate} 23:59:59")
+            filters.append("CAST(trx_date AS TIMESTAMP) <= CAST(%s AS TIMESTAMP)")
+            params.append(to_end_of_day(request.toDate))
 
         if request.postingType:
             filters.append("TRIM(c_d) = %s")

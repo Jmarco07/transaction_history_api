@@ -51,7 +51,7 @@ def lambda_handler(event, context) -> dict[str, Any]:
         ]
 
         response = {
-            "result": transaction_data,
+            "result": {"data": transaction_data},
             "pageInfo": page_info,
         }
 

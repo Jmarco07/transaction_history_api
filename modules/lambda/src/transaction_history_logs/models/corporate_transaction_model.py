@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+from utilities.date_converter import to_gmt8
 
 
 class CorporateTransaction(BaseModel):
@@ -23,3 +24,8 @@ class CorporateTransaction(BaseModel):
     source_account: Optional[str] = ""
     partner_ref_number: Optional[str] = ""
     load_datetime: Optional[datetime] = None
+
+    @field_validator("trx_date", mode="before")
+    @classmethod
+    def convert_dates(cls, v):
+        return to_gmt8(v)

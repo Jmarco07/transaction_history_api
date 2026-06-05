@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 from handlers.defaults.top_level import app
+from utilities.date_filter import parse_date_filter
 
 date_today = datetime.today()
 
@@ -50,12 +51,8 @@ def get_90_days_ago(date=None) -> str:
     return (date - timedelta(days=90)).strftime("%Y-%m-%d")
 
 def check_date_not_future(string_date):
-    if isinstance(string_date, datetime):
-        date = string_date
-    else:
-        date = datetime.strptime(string_date, "%Y-%m-%d")
-
-    if date.date() > date_today.date():
+    dt = parse_date_filter(string_date) if isinstance(string_date, str) else string_date
+    if dt.date() > date_today.date():
         raise ValueError("start date or end date must not be greater than today's date.")
     return string_date
 
@@ -66,27 +63,19 @@ def check_start_and_end_date(string_date, info):
         return string_date
 
     try:
-        start_dt = (
-            string_date.date()
-            if isinstance(string_date, datetime)
-            else datetime.strptime(string_date, "%Y-%m-%d").date()
-        )
+        start_dt = parse_date_filter(string_date)
     except ValueError:
-        raise ValueError(f"Invalid startDate format: '{string_date}', must be YYYY-MM-DD")
+        raise ValueError(f"Invalid startDate format: '{string_date}', must be YYYY-MM-DD or YYYY-MM-DD HH:MM:SS")
 
     try:
-        end_dt = (
-            end_date_str.date()
-            if isinstance(end_date_str, datetime)
-            else datetime.strptime(end_date_str, "%Y-%m-%d").date()
-        )
+        end_dt = parse_date_filter(end_date_str)
     except ValueError:
         return string_date
 
     if start_dt > end_dt:
         raise ValueError("start date must not be greater than end date")
 
-    delta_days = (end_dt - start_dt).days
+    delta_days = (end_dt.date() - start_dt.date()).days
     if delta_days > 90:
         raise ValueError("For transaction history beyond T-90 days, please contact Customer Support.")
 
@@ -111,7 +100,6 @@ class GetTransactionsRequest(BaseModel):
         AfterValidator(check_start_and_end_date),
     ] = Field(
         default_factory=get_90_days_ago,
-        pattern=r"\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])",
     )
     cursor: Optional[str] = None
     limit: int = Field(default=5000)
@@ -119,5 +107,4 @@ class GetTransactionsRequest(BaseModel):
     sort: Literal["ASC", "DESC"] = Field(default="DESC")
     end_date: Annotated[str, AfterValidator(check_date_not_future)] = Field(
         default_factory=lambda: (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d"),
-        pattern=r"\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])",
     )

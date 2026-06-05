@@ -2,6 +2,7 @@ import base64
 from typing import List, Tuple
 from models.requests.get_pesonet_transaction import GetPesonetTransactionRequest
 from models.pesonet_transaction_model import PesonetTransaction
+from utilities.date_filter import to_start_of_day, to_end_of_day
 
 
 class PesonetTransactionRepository:
@@ -29,14 +30,14 @@ class PesonetTransactionRepository:
             params.append(request.status)
 
         if request.fromDate and request.toDate:
-            filters.append("add_date BETWEEN %s AND %s")
-            params.extend([f"{request.fromDate} 00:00:00", f"{request.toDate} 23:59:59"])
+            filters.append("CAST(add_date AS TIMESTAMP) BETWEEN CAST(%s AS TIMESTAMP) AND CAST(%s AS TIMESTAMP)")
+            params.extend([to_start_of_day(request.fromDate), to_end_of_day(request.toDate)])
         elif request.fromDate:
-            filters.append("add_date >= %s")
-            params.append(f"{request.fromDate} 00:00:00")
+            filters.append("CAST(add_date AS TIMESTAMP) >= CAST(%s AS TIMESTAMP)")
+            params.append(to_start_of_day(request.fromDate))
         elif request.toDate:
-            filters.append("add_date <= %s")
-            params.append(f"{request.toDate} 23:59:59")
+            filters.append("CAST(add_date AS TIMESTAMP) <= CAST(%s AS TIMESTAMP)")
+            params.append(to_end_of_day(request.toDate))
 
         if request.cursor:
             cursor_value = cls.decode_cursor(request.cursor)

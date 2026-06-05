@@ -1,43 +1,29 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field, model_validator
 from utilities.date_filter import parse_date_filter
 
 
-class GetCorporateTransactionRequest(BaseModel):
+class GetBulkPeppDisbursementRequest(BaseModel):
     limit: int = Field(..., description="Number of records to return per page")
     cursor: Optional[str] = None
-    accountNumber: Optional[str] = None
-    referenceNo: Optional[str] = None
-    transactionType: Optional[str] = None
-    merchantId: Optional[str] = None
-    status: Optional[str] = None
+    accountNumbers: Optional[List[str]] = None
+    status: Optional[List[str]] = None
+    fileId: Optional[List[str]] = None
+    transactionTypes: Optional[List[str]] = None
     fromDate: Optional[str] = None
     toDate: Optional[str] = None
-    postingType: Optional[str] = None
 
     @model_validator(mode="after")
     def validate_date_range(self):
         today = datetime.today().date()
 
+        if self.cursor == "":
+            self.cursor = None
         if self.fromDate == "":
             self.fromDate = None
         if self.toDate == "":
             self.toDate = None
-        if self.cursor == "":
-            self.cursor = None
-        if self.accountNumber == "":
-            self.accountNumber = None
-        if self.referenceNo == "":
-            self.referenceNo = None
-        if self.transactionType == "":
-            self.transactionType = None
-        if self.merchantId == "":
-            self.merchantId = None
-        if self.status == "":
-            self.status = None
-        if self.postingType == "":
-            self.postingType = None
 
         if self.fromDate:
             from_dt = parse_date_filter(self.fromDate)

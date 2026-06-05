@@ -3,6 +3,7 @@ from typing import List, Tuple
 from factories.sql_factory import SQLFactory
 from models.requests.get_transactions import GetTransactionsRequest
 from models.transaction_model import AgentTransaction
+from utilities.date_filter import to_start_of_day, to_end_of_day
 
 
 class TransactionRepository:
@@ -85,8 +86,8 @@ class TransactionRepository:
 
         adtl_filters = ""
         params = [
-            f"{get_transactions_request.startDate} 00:00:00",
-            f"{get_transactions_request.end_date} 23:59:59",
+            to_start_of_day(get_transactions_request.startDate),
+            to_end_of_day(get_transactions_request.end_date),
         ]
 
         def add_filter(field_name: str, values: list):

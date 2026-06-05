@@ -8,6 +8,12 @@ class RequestValidationException(CustomException):
     ERROR_DETAILS = "Invalid request body"
 
 
+class BadRequestException(CustomException):
+    STATUS_CODE = 400
+    ERROR_CODE = "BAD_REQUEST"
+    ERROR_MESSAGE = "Bad Request"
+
+
 class UnauthorizedException(CustomException):
     STATUS_CODE = 401
     ERROR_CODE = "UNAUTHORIZED_EXCEPTION"

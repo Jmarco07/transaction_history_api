@@ -67,7 +67,7 @@ def lambda_handler(event, context) -> dict[str, Any]:
 
     transaction_view = TransactionView(**transaction)
 
-    response_model = TransactionViewResponse(result=transaction_view)
+    response_model = TransactionViewResponse(result={"data": transaction_view.model_dump()})
     return SuccessResponse(**response_model.model_dump())
 
 

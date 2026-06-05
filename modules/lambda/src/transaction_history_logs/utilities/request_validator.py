@@ -5,7 +5,8 @@ from typing import Any, Type
 
 from exceptions.model_exceptions import PydanticBaseModelException
 from exceptions.request_exceptions import (
-    RequestValidationException
+    RequestValidationException,
+    BadRequestException
 )
 from handlers.defaults.top_level import app
 from pydantic import BaseModel, ValidationError
@@ -40,11 +41,23 @@ def validate(event, model):
     print("REQUEST", event)
     body: dict[Any, Any] = {}
     if event["body"]:
-        body = json.loads(event["body"])
+        try:
+            body = json.loads(event["body"])
+        except (json.JSONDecodeError, TypeError):
+            raise BadRequestException(
+                custom_error_details="Invalid or malformed JSON in request body"
+            )
     if event["queryStringParameters"]:
         body = {**body, **event["queryStringParameters"]}
     if event["pathParameters"]:
         body = {**body, **event["pathParameters"]}
+
+    # Check for required 'limit' field on list endpoints
+    if "limit" in {f.alias or name for name, f in model.model_fields.items()}:
+        if "limit" not in body or body["limit"] is None or body["limit"] == "":
+            raise BadRequestException(
+                custom_error_details="limit is required"
+            )
 
     print("UNVALIDATED_BODY", body)
     result = _validate_data(body, model_class=model, context={"body": body})

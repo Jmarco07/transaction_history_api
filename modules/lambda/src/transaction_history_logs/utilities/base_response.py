@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any
 
 from exceptions.base_exception import CustomException, SuccessException
+
+GMT_PLUS_8 = timezone(timedelta(hours=8))
 
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
             return float(obj)
-        elif isinstance(obj, (datetime, date)):
+        elif isinstance(obj, datetime):
+            if obj.tzinfo is None:
+                obj = obj.replace(tzinfo=timezone.utc)
+            return obj.astimezone(GMT_PLUS_8).isoformat()
+        elif isinstance(obj, date):
             return obj.isoformat()
 
         return json.JSONEncoder.default(self, obj)

@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from utilities.date_converter import to_gmt8
 
 
 class WalletTransaction(BaseModel):
@@ -52,6 +53,14 @@ class WalletTransaction(BaseModel):
     earned_coupon: Optional[str] = None
     earned_points: Optional[str] = None
     load_datetime: Optional[datetime] = None
+
+    @field_validator("last_modified_date", mode="before")
+    @classmethod
+    def convert_dates(cls, v):
+        return to_gmt8(v)
+
+
+from pydantic import BaseModel, Field
 
 
 class WalletTransactionRequest(BaseModel):

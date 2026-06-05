@@ -56,6 +56,12 @@ module "api_gateway" {
       requires_auth   = true
     },
     {
+      function_name   = "bulk_pepp_disbursement",
+      route_key       = "POST /v1/api/bulk-pepp-disbursement-history",
+      integration_uri = module.lambda_functions.lambda_arns["bulk_pepp_disbursement"]
+      requires_auth   = true
+    },
+    {
       function_name   = "generate_cauth_token",
       route_key       = "POST /v1/api/generate_token",
       integration_uri = module.lambda_functions.lambda_arns["generate_cauth_token"]
@@ -109,6 +115,7 @@ module "lambda_functions" {
     { function_name = "transaction_view" },
     { function_name = "wallet_transaction" },
     { function_name = "remittance_transaction" },
+    { function_name = "bulk_pepp_disbursement" },
   ]
 
   lambda_layer_list = [
@@ -126,6 +133,9 @@ module "lambda_functions" {
     },
     {
       name = "remittance_transaction"
+    },
+    {
+      name = "bulk_pepp_disbursement"
     }
   ]
 
@@ -138,6 +148,9 @@ module "lambda_functions" {
     },
     {
       name = "remittance_transaction"
+    },
+    {
+      name = "bulk_pepp_disbursement"
     },
   ]
 
@@ -255,6 +268,28 @@ module "lambda_functions" {
       runtime       = "python3.11",
       memory_size   = 512,
       timeout       = 60,
+      layers        = ["redshift-api-layer-v1"],
+      vpc_config = {
+        subnet_ids         = var.lambda_vpc_subnet_ids
+        security_group_ids = var.lambda_security_group_ids
+      },
+      variables = {
+        REDSHIFT_ENDPOINT       = var.redshift_endpoint
+        REDSHIFT_DATABASE_NAME  = var.redshift_database_name
+        REDSHIFT_WORKGROUP_NAME = var.redshift_workgroup_name
+        REDSHIFT_SECRET_NAME    = "${module.secrets.redshift_lambda_user_secret_name}"
+        TZ                      = "Asia/Manila"
+      }
+    },
+    {
+      stack_name    = "transaction_history_logs",
+      function_name = "bulk_pepp_disbursement",
+      description   = "Redshift API Bulk PEPP Disbursement Transaction History function",
+      role          = "${local.common.project_name}-bulk_pepp_disbursement-lambda-role-${local.common.environment}",
+      handler       = "handlers.get_bulk_pepp_disbursement.lambda_handler",
+      runtime       = "python3.11",
+      memory_size   = 1536,
+      timeout       = 120,
       layers        = ["redshift-api-layer-v1"],
       vpc_config = {
         subnet_ids         = var.lambda_vpc_subnet_ids
