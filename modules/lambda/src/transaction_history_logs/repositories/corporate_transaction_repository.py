@@ -1,4 +1,5 @@
 import base64
+import math
 from typing import List, Tuple, Optional
 from models.requests.get_corporate_transaction import GetCorporateTransactionRequest
 from models.corporate_transaction_model import CorporateTransaction
@@ -17,7 +18,7 @@ class CorporateTransactionRepository:
         return decoded.split(":", 1)[1]
 
     @classmethod
-    def get(cls, connection, request: GetCorporateTransactionRequest) -> Tuple[List[CorporateTransaction], dict]:
+    def _build_base_filters(cls, request: GetCorporateTransactionRequest):
         params = []
         filters = []
 
@@ -54,6 +55,48 @@ class CorporateTransactionRepository:
         if request.postingType:
             filters.append("TRIM(c_d) = %s")
             params.append(request.postingType)
+
+        return filters, params
+
+    @classmethod
+    def get_summary(cls, connection, request: GetCorporateTransactionRequest) -> dict:
+        filters, params = cls._build_base_filters(request)
+        where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
+
+        query = f"""
+        SELECT
+            COUNT(*) AS total_records,
+            NVL(SUM(CASE WHEN TRIM(c_d) = 'DR' THEN CAST(trx_amt AS DECIMAL(18,2)) ELSE 0 END), 0) AS total_dr_amount,
+            NVL(SUM(CASE WHEN TRIM(c_d) = 'CR' THEN CAST(trx_amt AS DECIMAL(18,2)) ELSE 0 END), 0) AS total_cr_amount
+        FROM target.megalink_corporate_trxn_hist_fct
+        {where_clause}
+        """
+
+        try:
+            with connection.CLIENT.cursor() as cursor:
+                cursor.execute(query, tuple(params))
+                row = cursor.fetchone()
+
+                total_records = int(row[0]) if row else 0
+                total_pages = math.ceil(total_records / request.limit) if total_records > 0 else 0
+
+                return {
+                    "totalRecords": total_records,
+                    "totalPages": total_pages,
+                    "totalDrAmount": float(row[1]) if row else 0,
+                    "totalCrAmount": float(row[2]) if row else 0,
+                }
+        except Exception as e:
+            print(f"Summary query failed: {str(e)}")
+            try:
+                connection.CLIENT.rollback()
+            except:
+                pass
+            raise e
+
+    @classmethod
+    def get(cls, connection, request: GetCorporateTransactionRequest) -> Tuple[List[CorporateTransaction], dict]:
+        filters, params = cls._build_base_filters(request)
 
         if request.cursor:
             cursor_value = cls.decode_cursor(request.cursor)

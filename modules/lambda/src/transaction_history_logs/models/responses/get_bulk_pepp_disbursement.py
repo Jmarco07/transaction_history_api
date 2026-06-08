@@ -1,6 +1,5 @@
 from typing import Optional, List
 from pydantic import BaseModel
-from models.bulk_pepp_disbursement_model import BulkPeppDisbursementTransaction
 
 
 class PageInfo(BaseModel):
@@ -8,6 +7,16 @@ class PageInfo(BaseModel):
     hasPreviousPage: bool
     startCursor: Optional[str] = None
     endCursor: Optional[str] = None
+    totalRecords: int
+    totalPages: int
+
+
+class FinancialSummary(BaseModel):
+    totalAmount: float
+    totalSuccess: int
+    totalFailed: int
+    totalClaimedPepp: int
+    totalUnclaimedPepp: int
 
 
 class BulkPeppDisbursementResultDict(BaseModel):
@@ -17,3 +26,4 @@ class BulkPeppDisbursementResultDict(BaseModel):
 class GetBulkPeppDisbursementResponse(BaseModel):
     result: BulkPeppDisbursementResultDict
     pageInfo: PageInfo
+    summary: FinancialSummary

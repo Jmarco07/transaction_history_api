@@ -45,19 +45,27 @@ def lambda_handler(event, context) -> dict[str, Any]:
             request=body
         )
 
+        summary = CorporateTransactionRepository.get_summary(
+            connection=app.CONNECTION,
+            request=body
+        )
+
         transaction_data = [
             t.model_dump() if hasattr(t, "model_dump") else t.__dict__
             for t in transactions
         ]
 
-        total_dr = sum(float(t.trx_amt or 0) for t in transactions if t.c_d and t.c_d.strip() == "DR")
-        total_cr = sum(float(t.trx_amt or 0) for t in transactions if t.c_d and t.c_d.strip() == "CR")
-
         response = {
             "result": {"data": transaction_data},
-            "pageInfo": page_info,
-            "totalDrAmount": total_dr,
-            "totalCrAmount": total_cr,
+            "pageInfo": {
+                **page_info,
+                "totalRecords": summary["totalRecords"],
+                "totalPages": summary["totalPages"],
+            },
+            "summary": {
+                "totalDrAmount": summary["totalDrAmount"],
+                "totalCrAmount": summary["totalCrAmount"],
+            },
         }
 
         return SuccessResponse(**GetCorporateTransactionResponse(**response).model_dump())

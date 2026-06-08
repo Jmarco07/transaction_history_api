@@ -7,6 +7,13 @@ class PageInfo(BaseModel):
     hasPreviousPage: bool
     startCursor: Optional[str] = None
     endCursor: Optional[str] = None
+    totalRecords: int
+    totalPages: int
+
+
+class FinancialSummary(BaseModel):
+    totalDrAmount: float
+    totalCrAmount: float
 
 
 class CorporateTransactionResultDict(BaseModel):
@@ -16,5 +23,4 @@ class CorporateTransactionResultDict(BaseModel):
 class GetCorporateTransactionResponse(BaseModel):
     result: CorporateTransactionResultDict
     pageInfo: PageInfo
-    totalDrAmount: float = 0.0
-    totalCrAmount: float = 0.0
+    summary: FinancialSummary

@@ -1,4 +1,5 @@
 import base64
+import math
 from typing import List, Tuple, Optional
 from models.requests.get_bulk_pepp_disbursement import GetBulkPeppDisbursementRequest
 from models.bulk_pepp_disbursement_model import BulkPeppDisbursementTransaction
@@ -87,45 +88,90 @@ class BulkPeppDisbursementRepository:
         return ""
 
     @classmethod
-    def get(cls, connection, get_bulk_pepp_disbursement_request: GetBulkPeppDisbursementRequest) -> Tuple[List[BulkPeppDisbursementTransaction], dict]:
-        """
-        Fetch bulk PEPP disbursement transactions with cursor-based pagination and dynamic filtering.
-        """
-        limit = min(get_bulk_pepp_disbursement_request.limit, cls.MAX_LIMIT)
+    def _build_base_filters(cls, request: GetBulkPeppDisbursementRequest):
         params = []
         filters = " WHERE 1=1"
 
-        # Filter by accountNumbers (from_account)
-        if get_bulk_pepp_disbursement_request.accountNumbers:
-            placeholders = ", ".join(["%s"] * len(get_bulk_pepp_disbursement_request.accountNumbers))
+        if request.accountNumbers:
+            placeholders = ", ".join(["%s"] * len(request.accountNumbers))
             filters += f" AND from_account IN ({placeholders})"
-            params.extend(get_bulk_pepp_disbursement_request.accountNumbers)
+            params.extend(request.accountNumbers)
 
-        # Filter by fileId (bulk_id)
-        if get_bulk_pepp_disbursement_request.fileId:
-            placeholders = ", ".join(["%s"] * len(get_bulk_pepp_disbursement_request.fileId))
+        if request.fileId:
+            placeholders = ", ".join(["%s"] * len(request.fileId))
             filters += f" AND bulk_id IN ({placeholders})"
-            params.extend(get_bulk_pepp_disbursement_request.fileId)
+            params.extend(request.fileId)
 
-        # Filter by transactionTypes (msg_id)
-        if get_bulk_pepp_disbursement_request.transactionTypes:
-            placeholders = ", ".join(["%s"] * len(get_bulk_pepp_disbursement_request.transactionTypes))
+        if request.transactionTypes:
+            placeholders = ", ".join(["%s"] * len(request.transactionTypes))
             filters += f" AND msg_id IN ({placeholders})"
-            params.extend(get_bulk_pepp_disbursement_request.transactionTypes)
+            params.extend(request.transactionTypes)
 
-        # Filter by date range (uploaded_date)
-        if get_bulk_pepp_disbursement_request.fromDate:
+        if request.fromDate:
             filters += " AND CAST(uploaded_date AS TIMESTAMP) >= CAST(%s AS TIMESTAMP)"
-            params.append(to_start_of_day(get_bulk_pepp_disbursement_request.fromDate))
+            params.append(to_start_of_day(request.fromDate))
 
-        if get_bulk_pepp_disbursement_request.toDate:
+        if request.toDate:
             filters += " AND CAST(uploaded_date AS TIMESTAMP) <= CAST(%s AS TIMESTAMP)"
-            params.append(to_end_of_day(get_bulk_pepp_disbursement_request.toDate))
+            params.append(to_end_of_day(request.toDate))
 
-        # Custom status filter
-        if get_bulk_pepp_disbursement_request.status:
-            status_filter = cls._build_status_filter(get_bulk_pepp_disbursement_request.status)
+        if request.status:
+            status_filter = cls._build_status_filter(request.status)
             filters += status_filter
+
+        return filters, params
+
+    @classmethod
+    def get_summary(cls, connection, request: GetBulkPeppDisbursementRequest) -> dict:
+        filters, params = cls._build_base_filters(request)
+
+        query = f"""
+        SELECT
+            COUNT(*) AS total_records,
+            NVL(SUM(CAST(trxn_amt AS DECIMAL(18,2))), 0) AS total_amount,
+            COUNT(CASE
+                WHEN msg_id IN ('ibank_ft', 'ibank_ft_intl') AND resp_code IN ('00', '000') THEN 1
+                WHEN msg_id = 'rmt_send' AND resp_code IN ('00', '000') AND trxn_status IN ('UNCLAIMED', 'CLAIMED', 'CANCELLED') THEN 1
+                ELSE NULL END) AS total_success,
+            COUNT(CASE
+                WHEN msg_id IN ('ibank_ft', 'ibank_ft_intl') AND (resp_code IS NULL OR resp_code NOT IN ('00', '000')) THEN 1
+                WHEN msg_id = 'rmt_send' AND resp_code IS NOT NULL AND resp_code NOT IN ('00', '000') THEN 1
+                ELSE NULL END) AS total_failed,
+            COUNT(CASE WHEN msg_id = 'rmt_send' AND trxn_status = 'CLAIMED' THEN 1 ELSE NULL END) AS total_claimed_pepp,
+            COUNT(CASE WHEN msg_id = 'rmt_send' AND trxn_status = 'UNCLAIMED' THEN 1 ELSE NULL END) AS total_unclaimed_pepp
+        FROM target.megalink_bulk_pepp_disbursement_hist_fct
+        {filters}
+        """
+
+        try:
+            with connection.CLIENT.cursor() as cursor:
+                cursor.execute(query, tuple(params))
+                row = cursor.fetchone()
+
+                total_records = int(row[0]) if row else 0
+                total_pages = math.ceil(total_records / request.limit) if total_records > 0 else 0
+
+                return {
+                    "totalRecords": total_records,
+                    "totalPages": total_pages,
+                    "totalAmount": float(row[1]) if row else 0,
+                    "totalSuccess": int(row[2]) if row else 0,
+                    "totalFailed": int(row[3]) if row else 0,
+                    "totalClaimedPepp": int(row[4]) if row else 0,
+                    "totalUnclaimedPepp": int(row[5]) if row else 0,
+                }
+        except Exception as e:
+            print(f"Summary query failed: {str(e)}")
+            try:
+                connection.CLIENT.rollback()
+            except:
+                pass
+            raise e
+
+    @classmethod
+    def get(cls, connection, get_bulk_pepp_disbursement_request: GetBulkPeppDisbursementRequest) -> Tuple[List[BulkPeppDisbursementTransaction], dict]:
+        limit = min(get_bulk_pepp_disbursement_request.limit, cls.MAX_LIMIT)
+        filters, params = cls._build_base_filters(get_bulk_pepp_disbursement_request)
 
         # Cursor-based pagination
         cursor_filter = ""
@@ -164,7 +210,6 @@ class BulkPeppDisbursementRepository:
         print("==============================\n")
 
         try:
-            # Rollback any existing transaction to clear the connection state
             connection.CLIENT.rollback()
 
             with connection.CLIENT.cursor() as cursor:
@@ -179,7 +224,6 @@ class BulkPeppDisbursementRepository:
                         "endCursor": None,
                     }
 
-                # Map results to model
                 results = []
                 for row in rows:
                     transaction_dict = {}
@@ -189,7 +233,6 @@ class BulkPeppDisbursementRepository:
                             transaction_dict[col_name] = value if value is not None else ""
                     results.append(BulkPeppDisbursementTransaction(**transaction_dict))
 
-                # Determine pagination
                 has_next_page = len(results) > limit
                 if has_next_page:
                     results = results[:limit]
