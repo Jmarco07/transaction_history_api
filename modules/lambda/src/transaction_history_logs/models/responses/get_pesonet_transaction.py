@@ -7,6 +7,15 @@ class PageInfo(BaseModel):
     hasPreviousPage: bool
     startCursor: Optional[str] = None
     endCursor: Optional[str] = None
+    totalRecords: int
+    totalPages: int
+
+
+class FinancialSummary(BaseModel):
+    totalDrAmount: float
+    totalCrAmount: float
+    totalSettled: int
+    totalReversed: int
 
 
 class PesonetTransactionResultDict(BaseModel):
@@ -16,3 +25,4 @@ class PesonetTransactionResultDict(BaseModel):
 class GetPesonetTransactionResponse(BaseModel):
     result: PesonetTransactionResultDict
     pageInfo: PageInfo
+    summary: FinancialSummary
