@@ -16,3 +16,5 @@ class CorporateTransactionResultDict(BaseModel):
 class GetCorporateTransactionResponse(BaseModel):
     result: CorporateTransactionResultDict
     pageInfo: PageInfo
+    totalDrAmount: float = 0.0
+    totalCrAmount: float = 0.0

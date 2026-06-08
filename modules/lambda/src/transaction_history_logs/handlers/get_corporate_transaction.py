@@ -50,9 +50,14 @@ def lambda_handler(event, context) -> dict[str, Any]:
             for t in transactions
         ]
 
+        total_dr = sum(float(t.trx_amt or 0) for t in transactions if t.c_d and t.c_d.strip() == "DR")
+        total_cr = sum(float(t.trx_amt or 0) for t in transactions if t.c_d and t.c_d.strip() == "CR")
+
         response = {
             "result": {"data": transaction_data},
             "pageInfo": page_info,
+            "totalDrAmount": total_dr,
+            "totalCrAmount": total_cr,
         }
 
         return SuccessResponse(**GetCorporateTransactionResponse(**response).model_dump())
